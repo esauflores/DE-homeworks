@@ -1,0 +1,52 @@
+# start docker
+start:
+    docker-compose up -d
+
+# stop docker
+stop:
+	docker-compose down
+
+# delete docker with volumes
+delete:
+	docker-compose down -v
+
+# stop and start docker
+restart: stop start
+
+# stop, delete volumes and start docker
+full-restart: delete start
+	rm -rf magic_shop logs
+
+# create tables raw and analytics in clickhouse
+create-tables:
+	docker-compose exec clickhouse clickhouse-client --query="CREATE DATABASE IF NOT EXISTS raw;"
+	docker-compose exec clickhouse clickhouse-client --query="CREATE DATABASE IF NOT EXISTS analytics;"
+	
+# init dbt project
+init: create-tables
+	cp ./config/profiles.yml ~/.dbt/profiles.yml
+	dbt init magic_shop --profile magic_shop
+	rm -rf magic_shop/models/example
+	cp ./config/dbt_projects.yml ./magic_shop/dbt_project.yml
+	cp -r ./config/seeds ./magic_shop
+	cp -r ./config/models ./magic_shop
+
+seed-raw: 
+	cd magic_shop && dbt seed
+
+run-stage-raw:
+	cd magic_shop && dbt run --select staging  --target analytics
+
+run-mart-analytics:
+	cd magic_shop && dbt run --select marts --target analytics
+
+pipeline: seed-raw run-stage-raw run-mart-analytics
+
+test: 
+	cd magic_shop && dbt test --target analytics
+
+test-add-new-order:
+	echo "1005,2,2025-09-22 10:00:00,Test,fulfilled,67.0" >> ./magic_shop/seeds/orders.csv
+	cd magic_shop && dbt seed --full-refresh --target raw
+	cd magic_shop && dbt run --select stg_orders  --target analytics
+	cd magic_shop && dbt run --select fct_orders --target analytics

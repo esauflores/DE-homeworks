@@ -1,0 +1,11 @@
+[project]
+name = "hw2-revenue-analysis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "faker>=37.8.0",
+    "ipykernel>=6.30.1",
+    "pyspark>=4.0.1",
+]
